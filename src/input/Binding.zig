@@ -404,6 +404,9 @@ pub const Action = union(enum) {
     /// search terms, but opens the UI for searching.
     start_search,
 
+    /// Open the AI prompt overlay for natural language command generation.
+    ai_prompt,
+
     /// End the current search if any and hide any GUI elements.
     end_search,
 
@@ -1314,6 +1317,7 @@ pub const Action = union(enum) {
             .navigate_search,
             .search_selection,
             .start_search,
+            .ai_prompt,
             .end_search,
             .reset,
             .copy_to_clipboard,

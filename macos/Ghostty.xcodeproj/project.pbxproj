@@ -81,6 +81,7 @@
 				Features/About/AboutController.swift,
 				Features/About/AboutView.swift,
 				Features/About/CyclingIconView.swift,
+				"Features/AI Prompt/AIPromptOverlay.swift",
 				"Features/App Intents/CloseTerminalIntent.swift",
 				"Features/App Intents/CommandPaletteIntent.swift",
 				"Features/App Intents/Entities/CommandEntity.swift",

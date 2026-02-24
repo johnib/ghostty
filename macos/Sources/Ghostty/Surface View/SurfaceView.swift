@@ -199,6 +199,21 @@ extension Ghostty {
                     )
                 }
 
+                // AI prompt overlay
+                if let aiPromptState = surfaceView.aiPromptState {
+                    AIPromptOverlay(
+                        surfaceView: surfaceView,
+                        aiPromptState: aiPromptState,
+                        ghosttyConfig: ghostty.config,
+                        onClose: {
+#if canImport(AppKit)
+                            Ghostty.moveFocus(to: surfaceView)
+#endif
+                            surfaceView.aiPromptState = nil
+                        }
+                    )
+                }
+
                 // Show bell border if enabled
                 if ghostty.config.bellFeatures.contains(.border) {
                     BellBorderOverlay(bell: surfaceView.bell)
@@ -1256,5 +1271,16 @@ extension Ghostty.SurfaceView {
         init(from startSearch: Ghostty.Action.StartSearch) {
             self.needle = startSearch.needle ?? ""
         }
+    }
+}
+
+// MARK: AI Prompt State
+
+extension Ghostty.SurfaceView {
+    class AIPromptState: ObservableObject {
+        @Published var prompt: String = ""
+        @Published var isLoading: Bool = false
+        @Published var error: String?
+        var currentProcess: Process?
     }
 }

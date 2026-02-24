@@ -167,6 +167,33 @@ extension Ghostty {
             return String(cString: ptr)
         }
 
+        var aiApiKey: String? {
+            guard let config = self.config else { return nil }
+            var v: UnsafePointer<Int8>?
+            let key = "ai-api-key"
+            guard ghostty_config_get(config, &v, key, UInt(key.lengthOfBytes(using: .utf8))) else { return nil }
+            guard let ptr = v else { return nil }
+            return String(cString: ptr)
+        }
+
+        var aiModel: String? {
+            guard let config = self.config else { return nil }
+            var v: UnsafePointer<Int8>?
+            let key = "ai-model"
+            guard ghostty_config_get(config, &v, key, UInt(key.lengthOfBytes(using: .utf8))) else { return nil }
+            guard let ptr = v else { return nil }
+            return String(cString: ptr)
+        }
+
+        var aiEndpoint: String? {
+            guard let config = self.config else { return nil }
+            var v: UnsafePointer<Int8>?
+            let key = "ai-endpoint"
+            guard ghostty_config_get(config, &v, key, UInt(key.lengthOfBytes(using: .utf8))) else { return nil }
+            guard let ptr = v else { return nil }
+            return String(cString: ptr)
+        }
+
         var windowSaveState: String {
             guard let config = self.config else { return "" }
             var v: UnsafePointer<Int8>?

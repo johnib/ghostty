@@ -189,6 +189,12 @@ fn actionCommands(action: Action.Key) []const Command {
             .description = "Start a search if one isn't already active.",
         }},
 
+        .ai_prompt => comptime &.{.{
+            .action = .ai_prompt,
+            .title = "AI Command Generation",
+            .description = "Open the AI prompt to generate a shell command from a natural language description.",
+        }},
+
         .search_selection => comptime &.{.{
             .action = .search_selection,
             .title = "Search Selection",

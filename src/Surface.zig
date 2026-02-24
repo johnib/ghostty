@@ -5231,6 +5231,14 @@ pub fn performBindingAction(self: *Surface, action: input.Binding.Action) !bool 
             );
         },
 
+        .ai_prompt => {
+            return try self.rt_app.performAction(
+                .{ .surface = self },
+                .start_ai_prompt,
+                {},
+            );
+        },
+
         .search_selection => {
             const selection = try self.selectionString(self.alloc) orelse return false;
             defer self.alloc.free(selection);

@@ -116,6 +116,25 @@ pub const compatibility = std.StaticStringMap(
 /// Available since 1.3.0.
 language: ?[:0]const u8 = null,
 
+/// The API key for AI command generation (Cmd+I). This should be an
+/// Anthropic API key. If not set, the AI prompt feature will show an
+/// error when invoked.
+///
+/// macOS only.
+@"ai-api-key": ?[:0]const u8 = null,
+
+/// The model ID to use for AI command generation. Defaults to
+/// `claude-sonnet-4-20250514` if not set.
+///
+/// macOS only.
+@"ai-model": ?[:0]const u8 = null,
+
+/// The API endpoint for AI command generation. Defaults to
+/// `https://api.anthropic.com/v1/messages` if not set.
+///
+/// macOS only.
+@"ai-endpoint": ?[:0]const u8 = null,
+
 /// The font families to use.
 ///
 /// You can generate the list of valid values using the CLI:
@@ -6935,6 +6954,13 @@ pub const Keybinds = struct {
                 alloc,
                 .{ .key = .{ .unicode = 'i' }, .mods = .{ .alt = true, .super = true } },
                 .{ .inspector = .toggle },
+            );
+
+            // AI prompt
+            try self.set.put(
+                alloc,
+                .{ .key = .{ .unicode = 'i' }, .mods = .{ .super = true } },
+                .{ .ai_prompt = {} },
             );
 
             // Alternate keybind, common to Mac programs

@@ -648,6 +648,8 @@ extension Ghostty {
                 return false
             case GHOSTTY_ACTION_COPY_TITLE_TO_CLIPBOARD:
                 return copyTitleToClipboard(app, target: target)
+            case GHOSTTY_ACTION_START_AI_PROMPT:
+                startAIPrompt(app, target: target)
             default:
                 Ghostty.logger.warning("unknown action action=\(action.tag.rawValue)")
                 return false
@@ -1923,6 +1925,29 @@ extension Ghostty {
 
                 DispatchQueue.main.async {
                     surfaceView.searchState = nil
+                }
+
+            default:
+                assertionFailure()
+            }
+        }
+
+        private static func startAIPrompt(
+            _ app: ghostty_app_t,
+            target: ghostty_target_s) {
+            switch target.tag {
+            case GHOSTTY_TARGET_APP:
+                Ghostty.logger.warning("start_ai_prompt does nothing with an app target")
+                return
+
+            case GHOSTTY_TARGET_SURFACE:
+                guard let surface = target.target.surface else { return }
+                guard let surfaceView = self.surfaceView(from: surface) else { return }
+
+                DispatchQueue.main.async {
+                    if surfaceView.aiPromptState == nil {
+                        surfaceView.aiPromptState = Ghostty.SurfaceView.AIPromptState()
+                    }
                 }
 
             default:

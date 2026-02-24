@@ -105,6 +105,9 @@ extension Ghostty {
         // Cancellable for search state needle changes
         private var searchNeedleCancellable: AnyCancellable?
 
+        // The current AI prompt state. When non-nil, the AI prompt overlay should be shown.
+        @Published var aiPromptState: AIPromptState?
+
         // The time this surface last became focused. This is a ContinuousClock.Instant
         // on supported platforms.
         @Published var focusInstant: ContinuousClock.Instant?
