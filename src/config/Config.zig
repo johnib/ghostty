@@ -120,19 +120,31 @@ language: ?[:0]const u8 = null,
 /// Anthropic API key. If not set, the AI prompt feature will show an
 /// error when invoked.
 ///
+/// Warning: This value is stored in plaintext in the Ghostty
+/// configuration file. Ensure that your configuration file has
+/// appropriate file permissions and is not shared or committed
+/// to version control.
+///
 /// macOS only.
+///
+/// Available since: 1.4.0
 @"ai-api-key": ?[:0]const u8 = null,
 
 /// The model ID to use for AI command generation. Defaults to
 /// `claude-sonnet-4-20250514` if not set.
 ///
 /// macOS only.
+///
+/// Available since: 1.4.0
 @"ai-model": ?[:0]const u8 = null,
 
 /// The API endpoint for AI command generation. Defaults to
-/// `https://api.anthropic.com/v1/messages` if not set.
+/// `https://api.anthropic.com/v1/messages` if not set. The endpoint
+/// must use HTTPS to protect the API key in transit.
 ///
 /// macOS only.
+///
+/// Available since: 1.4.0
 @"ai-endpoint": ?[:0]const u8 = null,
 
 /// The font families to use.
@@ -6957,10 +6969,11 @@ pub const Keybinds = struct {
             );
 
             // AI prompt
-            try self.set.put(
+            try self.set.putFlags(
                 alloc,
                 .{ .key = .{ .unicode = 'i' }, .mods = .{ .super = true } },
-                .{ .ai_prompt = {} },
+                .ai_prompt,
+                .{ .performable = true },
             );
 
             // Alternate keybind, common to Mac programs

@@ -78,8 +78,8 @@ struct AIPromptOverlay: View {
     }
 
     private func cancelAndClose() {
-        aiPromptState.currentProcess?.terminate()
-        aiPromptState.currentProcess = nil
+        aiPromptState.currentTask?.cancel()
+        aiPromptState.currentTask = nil
         onClose()
     }
 
@@ -97,6 +97,12 @@ struct AIPromptOverlay: View {
 
         let model = ghosttyConfig.aiModel ?? "claude-sonnet-4-20250514"
         let endpoint = ghosttyConfig.aiEndpoint ?? "https://api.anthropic.com/v1/messages"
+
+        guard endpoint.hasPrefix("https://") else {
+            aiPromptState.isLoading = false
+            aiPromptState.error = "AI endpoint must use HTTPS to protect your API key."
+            return
+        }
 
         // Gather context
         let osVersion = ProcessInfo.processInfo.operatingSystemVersion
@@ -117,7 +123,7 @@ struct AIPromptOverlay: View {
         // Build the JSON payload
         let payload: [String: Any] = [
             "model": model,
-            "max_tokens": 1024,
+            "max_tokens": 128,
             "system": systemPrompt,
             "messages": [
                 ["role": "user", "content": prompt]
@@ -132,23 +138,27 @@ struct AIPromptOverlay: View {
 
         let state = aiPromptState
         let surface = surfaceView
+        let closeFn = onClose
 
-        Task.detached {
+        state.currentTask = Task {
             do {
-                let command = try await Self.runCurl(
+                let command = try await Self.callAPI(
                     endpoint: endpoint,
                     apiKey: apiKey,
-                    payload: payloadData,
-                    state: state
+                    payload: payloadData
                 )
+
+                guard !Task.isCancelled else { return }
 
                 await MainActor.run {
                     state.isLoading = false
                     Self.insertCommand(command, into: surface)
-                    onClose()
+                    closeFn()
                 }
             } catch is CancellationError {
                 // User cancelled
+            } catch let urlError as URLError where urlError.code == .cancelled {
+                // URLSession cancelled via task cancellation
             } catch {
                 await MainActor.run {
                     state.isLoading = false
@@ -158,83 +168,51 @@ struct AIPromptOverlay: View {
         }
     }
 
-    private static func runCurl(
+    private static func callAPI(
         endpoint: String,
         apiKey: String,
-        payload: Data,
-        state: Ghostty.SurfaceView.AIPromptState
+        payload: Data
     ) async throws -> String {
-        try await withCheckedThrowingContinuation { continuation in
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/curl")
-            process.arguments = [
-                "-s",
-                "-X", "POST",
-                endpoint,
-                "-H", "Content-Type: application/json",
-                "-H", "x-api-key: \(apiKey)",
-                "-H", "anthropic-version: 2023-06-01",
-                "-d", "@-"
-            ]
-
-            let stdinPipe = Pipe()
-            let stdoutPipe = Pipe()
-            let stderrPipe = Pipe()
-            process.standardInput = stdinPipe
-            process.standardOutput = stdoutPipe
-            process.standardError = stderrPipe
-
-            DispatchQueue.main.async {
-                state.currentProcess = process
-            }
-
-            do {
-                try process.run()
-            } catch {
-                continuation.resume(throwing: error)
-                return
-            }
-
-            // Write payload to stdin then close
-            stdinPipe.fileHandleForWriting.write(payload)
-            stdinPipe.fileHandleForWriting.closeFile()
-
-            process.waitUntilExit()
-
-            DispatchQueue.main.async {
-                state.currentProcess = nil
-            }
-
-            guard process.terminationStatus == 0 else {
-                continuation.resume(throwing: AIPromptError.curlFailed(
-                    "curl exited with status \(process.terminationStatus)"
-                ))
-                return
-            }
-
-            let outputData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-            guard let json = try? JSONSerialization.jsonObject(with: outputData) as? [String: Any] else {
-                continuation.resume(throwing: AIPromptError.invalidResponse("Failed to parse API response."))
-                return
-            }
-
-            // Check for API error
-            if let apiError = json["error"] as? [String: Any],
-               let message = apiError["message"] as? String {
-                continuation.resume(throwing: AIPromptError.apiError(message))
-                return
-            }
-
-            guard let content = json["content"] as? [[String: Any]],
-                  let first = content.first,
-                  let text = first["text"] as? String else {
-                continuation.resume(throwing: AIPromptError.invalidResponse("No text in API response."))
-                return
-            }
-
-            let command = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            continuation.resume(returning: command)
+        guard let url = URL(string: endpoint) else {
+            throw AIPromptError.invalidResponse("Invalid endpoint URL.")
         }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 30
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        request.httpBody = payload
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        if let httpResponse = response as? HTTPURLResponse,
+           !(200...299).contains(httpResponse.statusCode) {
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let apiError = json["error"] as? [String: Any],
+               let message = apiError["message"] as? String {
+                throw AIPromptError.apiError(message)
+            }
+            throw AIPromptError.requestFailed("HTTP \(httpResponse.statusCode)")
+        }
+
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw AIPromptError.invalidResponse("Failed to parse API response.")
+        }
+
+        if let apiError = json["error"] as? [String: Any],
+           let message = apiError["message"] as? String {
+            throw AIPromptError.apiError(message)
+        }
+
+        guard let content = json["content"] as? [[String: Any]],
+              let first = content.first,
+              let text = first["text"] as? String else {
+            throw AIPromptError.invalidResponse("No text in API response.")
+        }
+
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func insertCommand(_ command: String, into surfaceView: Ghostty.SurfaceView) {
@@ -248,13 +226,13 @@ struct AIPromptOverlay: View {
 }
 
 enum AIPromptError: LocalizedError {
-    case curlFailed(String)
+    case requestFailed(String)
     case invalidResponse(String)
     case apiError(String)
 
     var errorDescription: String? {
         switch self {
-        case .curlFailed(let msg): return msg
+        case .requestFailed(let msg): return msg
         case .invalidResponse(let msg): return msg
         case .apiError(let msg): return "API error: \(msg)"
         }

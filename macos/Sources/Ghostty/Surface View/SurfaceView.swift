@@ -1281,6 +1281,6 @@ extension Ghostty.SurfaceView {
         @Published var prompt: String = ""
         @Published var isLoading: Bool = false
         @Published var error: String?
-        var currentProcess: Process?
+        var currentTask: Task<Void, Never>?
     }
 }
